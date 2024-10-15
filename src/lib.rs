@@ -44,14 +44,16 @@
 //! client.sts_for_put_object(&arn, "mi-dev-public", "yuanyq-test/file-from-rust.zip", 3600)
 //! ```
 
-
 use std::collections::HashMap;
 
 use chrono::Utc;
 use hmac::{Hmac, Mac};
-use reqwest::{header::{HeaderMap, HeaderValue}, Client, Method};
+use reqwest::{
+    header::{HeaderMap, HeaderValue},
+    Client, Method,
+};
 use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 #[derive(Serialize)]
 pub enum Versions {
@@ -62,14 +64,14 @@ pub enum Versions {
 #[derive(Serialize)]
 pub enum Effects {
     Allow,
-    Deny
+    Deny,
 }
 
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum StringOrArray {
     StringValue(String),
-    ArrayValue(Vec<String>)
+    ArrayValue(Vec<String>),
 }
 
 #[derive(Serialize)]
@@ -84,7 +86,7 @@ pub struct StatementBlock {
     pub resource: StringOrArray,
 
     #[serde(rename = "Condition", skip_serializing_if = "Option::is_none")]
-    pub condition: Option<HashMap<String, StringOrArray>>
+    pub condition: Option<HashMap<String, StringOrArray>>,
 }
 
 ///
@@ -95,10 +97,23 @@ pub struct StatementBlock {
 #[derive(Serialize)]
 pub struct Policy {
     #[serde(rename = "Version")]
-    version: Versions,
+    pub version: Versions,
 
     #[serde(rename = "Statement")]
-    statement: Vec<StatementBlock>,
+    pub statement: Vec<StatementBlock>,
+}
+
+impl Policy {
+    /// 使用 Version1 创建一个 `Policy`。
+    pub fn v1<I>(stmts: I) -> Policy
+    where
+        I: IntoIterator<Item = StatementBlock>,
+    {
+        Self {
+            version: Versions::V1,
+            statement: stmts.into_iter().collect(),
+        }
+    }
 }
 
 /// AssumeRole 请求体
@@ -139,7 +154,6 @@ pub struct AssumeRoleRequest {
     #[serde(rename = "RoleSessionName")]
     pub role_session_name: String,
 
-
     ///
     /// 角色外部 ID。
     /// 该参数为外部提供的用于表示角色的参数信息，主要功能是防止混淆代理人问题。
@@ -151,13 +165,18 @@ pub struct AssumeRoleRequest {
 }
 
 impl AssumeRoleRequest {
-    pub fn new(role_arn: &str, role_session_name: &str, policy: Option<Policy>, duration_seconds: u32) -> Self {
+    pub fn new(
+        role_arn: &str,
+        role_session_name: &str,
+        policy: Option<Policy>,
+        duration_seconds: u32,
+    ) -> Self {
         Self {
             duration_seconds,
             policy,
             external_id: None,
             role_arn: role_arn.to_owned(),
-            role_session_name: role_session_name.to_owned()
+            role_session_name: role_session_name.to_owned(),
         }
     }
 }
@@ -211,7 +230,7 @@ pub struct AssumeRoleResponse {
     pub host_id: Option<String>,
 
     #[serde(rename = "Code")]
-    pub code: Option<String>
+    pub code: Option<String>,
 }
 
 pub struct StsClient {
@@ -233,7 +252,13 @@ impl StsClient {
     }
 
     /// 生成上传文件到 `${bucket_name}/${object_key}` 的 STS 凭证。
-    pub async fn sts_for_put_object(&self, arn: &str, bucket_name: &str, object_key: &str, duration_seconds: u32) -> Result<AssumeRoleResponseCredentials, String> {
+    pub async fn sts_for_put_object(
+        &self,
+        arn: &str,
+        bucket_name: &str,
+        object_key: &str,
+        duration_seconds: u32,
+    ) -> Result<AssumeRoleResponseCredentials, String> {
         let sanitized_object_key = if object_key.starts_with("/") {
             &object_key[1..]
         } else {
@@ -242,17 +267,19 @@ impl StsClient {
 
         let policy = Policy {
             version: Versions::V1,
-            statement: vec![
-                StatementBlock {
-                    action: StringOrArray::ArrayValue(vec!["oss:*".to_owned()]),
-                    effect: Effects::Allow,
-                    resource: StringOrArray::ArrayValue(vec![format!("acs:oss:*:*:{}/{}", bucket_name, sanitized_object_key)]),
-                    condition: None,
-                }
-            ]
+            statement: vec![StatementBlock {
+                action: StringOrArray::ArrayValue(vec!["oss:*".to_owned()]),
+                effect: Effects::Allow,
+                resource: StringOrArray::ArrayValue(vec![format!(
+                    "acs:oss:*:*:{}/{}",
+                    bucket_name, sanitized_object_key
+                )]),
+                condition: None,
+            }],
         };
 
-        let req = AssumeRoleRequest::new(arn, "aliyun-sts-rust-sdk", Some(policy), duration_seconds);
+        let req =
+            AssumeRoleRequest::new(arn, "aliyun-sts-rust-sdk", Some(policy), duration_seconds);
 
         match self.assume_role(req).await {
             Ok(r) => {
@@ -261,8 +288,8 @@ impl StsClient {
                 } else {
                     Err(r.message.unwrap_or("调用阿里云服务失败".to_owned()))
                 }
-            },
-            Err(e) => Err(e)
+            }
+            Err(e) => Err(e),
         }
     }
 
@@ -279,9 +306,12 @@ impl StsClient {
         } = req;
 
         let mut payload_map = HashMap::from([
-            ("DurationSeconds".to_owned(), format!("{}", duration_seconds)),
+            (
+                "DurationSeconds".to_owned(),
+                format!("{}", duration_seconds),
+            ),
             ("RoleArn".to_owned(), role_arn),
-            ("RoleSessionName".to_owned(), role_session_name)
+            ("RoleSessionName".to_owned(), role_session_name),
         ]);
 
         if let Some(eid) = external_id {
@@ -292,26 +322,30 @@ impl StsClient {
             payload_map.insert("Policy".to_owned(), serde_json::to_string(&p).unwrap());
         }
 
-        match self.do_request(Method::POST, "/", Some(headers), None, Some(payload_map)).await {
+        match self
+            .do_request(Method::POST, "/", Some(headers), None, Some(payload_map))
+            .await
+        {
             Ok(content) => {
                 let res = match serde_json::from_str(&content) {
                     Ok(r) => Ok(r),
-                    Err(_) => Err(format!("Error while parsing response: {}", content))
+                    Err(_) => Err(format!("Error while parsing response: {}", content)),
                 };
 
                 res
-            },
-            Err(e) => Err(e)
+            }
+            Err(e) => Err(e),
         }
     }
 
-    pub async fn do_request(&self,
-                            method: Method,
-                            uri: &str,
-                            headers: Option<HeaderMap>,
-                            query: Option<HashMap<String, String>>,
-                            payload: Option<HashMap<String, String>>) -> Result<String, String> {
-
+    pub async fn do_request(
+        &self,
+        method: Method,
+        uri: &str,
+        headers: Option<HeaderMap>,
+        query: Option<HashMap<String, String>>,
+        payload: Option<HashMap<String, String>>,
+    ) -> Result<String, String> {
         let dt_string = iso_8601_data_time_string();
         let nonce = format!("{}", Utc::now().timestamp_millis());
 
@@ -322,7 +356,10 @@ impl StsClient {
 
         all_headers.insert("x-sdk-version", HeaderValue::from_static("rust/0.1.0"));
         all_headers.insert("x-acs-version", HeaderValue::from_static("2015-04-01"));
-        all_headers.insert("x-acs-signature-nonce", HeaderValue::from_str(&nonce).unwrap());
+        all_headers.insert(
+            "x-acs-signature-nonce",
+            HeaderValue::from_str(&nonce).unwrap(),
+        );
         all_headers.insert("x-acs-date", HeaderValue::from_str(&dt_string).unwrap());
         all_headers.insert("host", HeaderValue::from_str(&self.endpoint).unwrap());
         all_headers.insert("Accept", HeaderValue::from_static("application/json"));
@@ -332,23 +369,35 @@ impl StsClient {
                 let mut items = map.iter().collect::<Vec<(_, _)>>();
 
                 items.sort_by(|a, b| a.0.cmp(b.0));
-                items.into_iter()
-                    .map(|item| format!("{}={}", urlencoding::encode(item.0), urlencoding::encode(item.1)))
+                items
+                    .into_iter()
+                    .map(|item| {
+                        format!(
+                            "{}={}",
+                            urlencoding::encode(item.0),
+                            urlencoding::encode(item.1)
+                        )
+                    })
                     .collect::<Vec<_>>()
                     .join("&")
-            },
-            None => "".to_owned()
+            }
+            None => "".to_owned(),
         };
 
         // 组装 FORM 表单请求体。这个就不需要按照 key 排序了
         let payload_string = match payload {
-            Some(map) => {
-                map.iter()
-                    .map(|item| format!("{}={}", urlencoding::encode(item.0), urlencoding::encode(item.1)))
-                    .collect::<Vec<_>>()
-                    .join("&")
-            },
-            None => "".to_string()
+            Some(map) => map
+                .iter()
+                .map(|item| {
+                    format!(
+                        "{}={}",
+                        urlencoding::encode(item.0),
+                        urlencoding::encode(item.1)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("&"),
+            None => "".to_string(),
         };
 
         log::debug!("payload string: \n{}", payload_string);
@@ -357,26 +406,32 @@ impl StsClient {
 
         // 对请求体内容做 SHA256 摘要
         let payload_hash_string = sha256(payload_data);
-        all_headers.insert("x-acs-content-sha256", HeaderValue::from_str(&payload_hash_string).unwrap());
+        all_headers.insert(
+            "x-acs-content-sha256",
+            HeaderValue::from_str(&payload_hash_string).unwrap(),
+        );
 
         // 需要参与签名的请求头
         // 请求头转小写（阿里云公共请求头包含： host 和 x-acs- 开头的）
         // 排序
-        let mut canonical_headers = all_headers.iter()
-                .map(|item| (item.0.to_string().to_lowercase(), item.1))
-                .filter(|item| item.0 == "host" || item.0.starts_with("x-acs"))
-                .collect::<Vec<(_, _)>>();
+        let mut canonical_headers = all_headers
+            .iter()
+            .map(|item| (item.0.to_string().to_lowercase(), item.1))
+            .filter(|item| item.0 == "host" || item.0.starts_with("x-acs"))
+            .collect::<Vec<(_, _)>>();
 
         canonical_headers.sort_by(|a, b| a.0.cmp(&b.0));
 
         // 请求头的名和值使用冒号 (:) 拼接，再使用换行符拼接
-        let canonical_header_string = canonical_headers.iter()
+        let canonical_header_string = canonical_headers
+            .iter()
             .map(|item| format!("{}:{}", item.0, item.1.to_str().unwrap()))
             .collect::<Vec<_>>()
             .join("\n");
 
         // 请求头的名使用分号（;） 拼接
-        let canonical_header_name_string = canonical_headers.iter()
+        let canonical_header_name_string = canonical_headers
+            .iter()
             .map(|item| item.0.clone())
             .collect::<Vec<_>>()
             .join(";");
@@ -410,25 +465,35 @@ impl StsClient {
 
         let auth_header = format!(
             "ACS3-HMAC-SHA256 Credential={},SignedHeaders={},Signature={}",
-            self.access_key_id,
-            canonical_header_name_string,
-            sig
+            self.access_key_id, canonical_header_name_string, sig
         );
 
         log::info!("auth header: {}", auth_header);
 
-        all_headers.insert("Authorization", HeaderValue::from_str(&auth_header).unwrap());
+        all_headers.insert(
+            "Authorization",
+            HeaderValue::from_str(&auth_header).unwrap(),
+        );
 
         if !payload_string.is_empty() {
-            all_headers.insert("Content-Length", HeaderValue::from_str(format!("{}", payload_data.len()).as_str()).unwrap());
+            all_headers.insert(
+                "Content-Length",
+                HeaderValue::from_str(format!("{}", payload_data.len()).as_str()).unwrap(),
+            );
         }
 
-        all_headers.insert("Content-Type", HeaderValue::from_static("application/x-www-form-urlencoded"));
+        all_headers.insert(
+            "Content-Type",
+            HeaderValue::from_static("application/x-www-form-urlencoded"),
+        );
 
         let full_url = if canonical_query_string.is_empty() {
             format!("https://{}{}", self.endpoint, uri)
         } else {
-            format!("https://{}{}?{}", self.endpoint, uri, canonical_query_string)
+            format!(
+                "https://{}{}?{}",
+                self.endpoint, uri, canonical_query_string
+            )
         };
 
         let req = Client::new().request(method, full_url).headers(all_headers);
@@ -442,13 +507,12 @@ impl StsClient {
 
         let response = match self.req_client.execute(req).await.unwrap().text().await {
             Ok(s) => s,
-            Err(e) => return Err(e.to_string())
+            Err(e) => return Err(e.to_string()),
         };
 
         log::debug!("response: {}", response);
 
         Ok(response)
-
     }
 }
 
@@ -478,7 +542,10 @@ fn iso_8601_data_time_string() -> String {
 
 #[cfg(test)]
 mod test {
-    use crate::{iso_8601_data_time_string, AssumeRoleRequest, Effects, Policy, StatementBlock, StringOrArray, StsClient, Versions};
+    use crate::{
+        iso_8601_data_time_string, AssumeRoleRequest, Effects, Policy, StatementBlock,
+        StringOrArray, StsClient, Versions,
+    };
 
     #[test]
     fn test_dt_string() {
@@ -495,14 +562,12 @@ mod test {
 
         let policy = Policy {
             version: Versions::V1,
-            statement: vec![
-                StatementBlock {
-                    action: StringOrArray::ArrayValue(vec!["oss:*".to_owned()]),
-                    effect: Effects::Allow,
-                    resource: StringOrArray::ArrayValue(vec!["acs:oss:*:*:xxxxxx".to_owned()]),
-                    condition: None,
-                }
-            ]
+            statement: vec![StatementBlock {
+                action: StringOrArray::ArrayValue(vec!["oss:*".to_owned()]),
+                effect: Effects::Allow,
+                resource: StringOrArray::ArrayValue(vec!["acs:oss:*:*:xxxxxx".to_owned()]),
+                condition: None,
+            }],
         };
 
         let req = AssumeRoleRequest::new(&arn, role_session_name, Some(policy), 3600);
@@ -521,14 +586,14 @@ mod test {
 
         let policy = Policy {
             version: Versions::V1,
-            statement: vec![
-                StatementBlock {
-                    action: StringOrArray::ArrayValue(vec!["oss:*".to_owned()]),
-                    effect: Effects::Allow,
-                    resource: StringOrArray::ArrayValue(vec!["acs:oss:*:*:mi-dev-public/yuanyq-test/file-from-rust.zip".to_owned()]),
-                    condition: None,
-                }
-            ]
+            statement: vec![StatementBlock {
+                action: StringOrArray::ArrayValue(vec!["oss:*".to_owned()]),
+                effect: Effects::Allow,
+                resource: StringOrArray::ArrayValue(vec![
+                    "acs:oss:*:*:mi-dev-public/yuanyq-test/file-from-rust.zip".to_owned(),
+                ]),
+                condition: None,
+            }],
         };
 
         let req = AssumeRoleRequest::new(&arn, role_session_name, Some(policy), 3600);
@@ -538,8 +603,8 @@ mod test {
             Ok(r) => {
                 assert!(r.credentials.is_some());
                 println!("{}", serde_json::to_string(&r).unwrap());
-            },
-            Err(e) => println!("{:?}", e)
+            }
+            Err(e) => println!("{:?}", e),
         }
     }
 
@@ -553,7 +618,14 @@ mod test {
         let arn = dotenv::var("ARN").unwrap();
 
         let client = StsClient::new("sts.aliyuncs.com", &aid, &asec);
-        let ret = client.sts_for_put_object(&arn, "mi-dev-public", "yuanyq-test/file-from-rust.zip", 3600).await;
+        let ret = client
+            .sts_for_put_object(
+                &arn,
+                "mi-dev-public",
+                "yuanyq-test/file-from-rust.zip",
+                3600,
+            )
+            .await;
         assert!(ret.is_ok());
         println!("{}", serde_json::to_string(&ret.unwrap()).unwrap());
     }
