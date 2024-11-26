@@ -1,6 +1,6 @@
 [package]
 name = "aliyun-sts-rust-sdk"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Yuan YuQiang"]
 description = "A tiny lib for aliyun sts api"
@@ -11,7 +11,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 chrono = "0.4.38"
 hmac = "0.12.1"
-reqwest = { version = "0.12.7", features = ["json"] }
+reqwest = {version = "0.12.9", default-features = false, features = ["rustls-tls", "json"]}
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"
 urlencoding = "2.1.3"
