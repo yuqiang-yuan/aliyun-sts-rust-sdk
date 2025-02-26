@@ -1,6 +1,7 @@
 # 阿里云 STS SDK
 
 [![Crates.io Version](https://img.shields.io/crates/v/aliyun-sts-rust-sdk)](https://crates.io/crates/aliyun-sts-rust-sdk)
+![Crates.io MSRV](https://img.shields.io/crates/msrv/aliyun-sts-rust-sdk)
 [![docs.rs](https://img.shields.io/docsrs/aliyun-sts-rust-sdk)](https://docs.rs/aliyun-sts-rust-sdk)
 [![Crates.io License](https://img.shields.io/crates/l/aliyun-sts-rust-sdk)](https://github.com/yuqiang-yuan/ali-oss-rs?tab=License-1-ov-file)
 
