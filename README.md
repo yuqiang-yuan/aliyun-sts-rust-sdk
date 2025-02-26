@@ -3,7 +3,7 @@
 [![Crates.io Version](https://img.shields.io/crates/v/aliyun-sts-rust-sdk)](https://crates.io/crates/aliyun-sts-rust-sdk)
 ![Crates.io MSRV](https://img.shields.io/crates/msrv/aliyun-sts-rust-sdk)
 [![docs.rs](https://img.shields.io/docsrs/aliyun-sts-rust-sdk)](https://docs.rs/aliyun-sts-rust-sdk)
-[![Crates.io License](https://img.shields.io/crates/l/aliyun-sts-rust-sdk)](https://github.com/yuqiang-yuan/ali-oss-rs?tab=License-1-ov-file)
+[![Crates.io License](https://img.shields.io/crates/l/aliyun-sts-rust-sdk)](https://github.com/yuqiang-yuan/aliyun-sts-rust-sdk?tab=MIT-1-ov-file)
 
 实现了 `AssumeRole` API 的调用，生成一对临时的访问 ID 和访问密钥，可以让前端利用 [ali oss](https://www.npmjs.com/package/ali-oss) 库上传比较大的文件。
 
