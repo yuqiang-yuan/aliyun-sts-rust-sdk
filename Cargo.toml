@@ -2,11 +2,13 @@
 name = "aliyun-sts-rust-sdk"
 version = "0.1.2"
 edition = "2021"
-authors = ["Yuan YuQiang"]
-description = "A tiny lib for aliyun sts api"
-keywords = ["aliyun", "sts"]
+authors = ["Yuan YQ <yuqiang.yuan@163.com>"]
+description = "A tiny lib for aliyun sts api.  阿里云 STS API 调用工具"
+keywords = ["aliyun", "sts", "ali"]
+documentation = "https://docs.rs/aliyun-sts-rust-sdk"
 repository = "https://github.com/yuqiang-yuan/aliyun-sts-rust-sdk"
-license = "MIT OR Apache-2.0"
+license = "MIT"
+categories = ["api-bindings", "web-programming"]
 
 [dependencies]
 chrono = "0.4.38"
