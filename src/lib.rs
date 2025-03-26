@@ -233,6 +233,61 @@ pub struct AssumeRoleResponse {
     pub code: Option<String>,
 }
 
+pub struct StsClientBuilder {
+    endpoint: String,
+    access_key_id: String,
+    access_key_secret: String,
+    req_client: Option<Client>,
+}
+
+impl StsClientBuilder {}
+
+impl Default for StsClientBuilder {
+    fn default() -> Self {
+        Self {
+            endpoint: "sts.aliyuncs.com".to_owned(),
+            access_key_id: "".to_owned(),
+            access_key_secret: "".to_owned(),
+            req_client: None,
+        }
+    }
+}
+
+impl StsClientBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn endpoint(mut self, endpoint: &str) -> Self {
+        self.endpoint = endpoint.to_owned();
+        self
+    }
+
+    pub fn access_key_id(mut self, access_key_id: &str) -> Self {
+        self.access_key_id = access_key_id.to_owned();
+        self
+    }
+
+    pub fn access_key_secret(mut self, access_key_secret: &str) -> Self {
+        self.access_key_secret = access_key_secret.to_owned();
+        self
+    }
+
+    pub fn client(mut self, req_client: Client) -> Self {
+        self.req_client = Some(req_client);
+        self
+    }
+
+    pub fn build(self) -> StsClient {
+        StsClient {
+            endpoint: self.endpoint,
+            access_key_id: self.access_key_id,
+            access_key_secret: self.access_key_secret,
+            req_client: self.req_client.unwrap_or_else(|| Client::new()),
+        }
+    }
+}
+
 pub struct StsClient {
     endpoint: String,
     access_key_id: String,
@@ -249,6 +304,10 @@ impl StsClient {
             access_key_secret: access_key_secret.to_owned(),
             req_client: client,
         }
+    }
+
+    pub fn builder() -> StsClientBuilder {
+        StsClientBuilder::default()
     }
 
     /// 生成上传文件到 `${bucket_name}/${object_key}` 的 STS 凭证。
