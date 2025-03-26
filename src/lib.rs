@@ -283,7 +283,7 @@ impl StsClientBuilder {
             endpoint: self.endpoint,
             access_key_id: self.access_key_id,
             access_key_secret: self.access_key_secret,
-            req_client: self.req_client.unwrap_or_else(|| Client::new()),
+            req_client: self.req_client.unwrap_or_default(),
         }
     }
 }
@@ -318,8 +318,8 @@ impl StsClient {
         object_key: &str,
         duration_seconds: u32,
     ) -> Result<AssumeRoleResponseCredentials, String> {
-        let sanitized_object_key = if object_key.starts_with("/") {
-            &object_key[1..]
+        let sanitized_object_key = if let Some(s) = object_key.strip_prefix("/") {
+            s
         } else {
             object_key
         };
@@ -385,14 +385,10 @@ impl StsClient {
             .do_request(Method::POST, "/", Some(headers), None, Some(payload_map))
             .await
         {
-            Ok(content) => {
-                let res = match serde_json::from_str(&content) {
-                    Ok(r) => Ok(r),
-                    Err(_) => Err(format!("Error while parsing response: {}", content)),
-                };
-
-                res
-            }
+            Ok(content) => match serde_json::from_str(&content) {
+                Ok(r) => Ok(r),
+                Err(_) => Err(format!("Error while parsing response: {}", content)),
+            },
             Err(e) => Err(e),
         }
     }
@@ -498,7 +494,7 @@ impl StsClient {
         // 构造规范请求的文本
         let canonical_request = format!(
             "{}\n{}\n{}\n{}\n\n{}\n{}",
-            method.to_string(),
+            method,
             uri,
             canonical_query_string,
             canonical_header_string,
